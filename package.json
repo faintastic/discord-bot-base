@@ -1,0 +1,16 @@
+{
+  "name": "discord-bot-base",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7"
+  }
+}
