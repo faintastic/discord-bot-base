@@ -3,11 +3,7 @@ import color from "../../utilities/color";
 import client from "../../utilities/client";
 import logger from "../../utilities/logger";
 import type { Execute } from "../../interfaces/Event";
-import {
-  Events,
-  Collection,
-  EmbedBuilder,
-} from "discord.js";
+import { Events, Collection, EmbedBuilder, MessageFlags } from "discord.js";
 import type {
   Interaction,
   CommandInteractionOptionResolver,
@@ -25,20 +21,25 @@ export const execute: Execute = async (
   try {
     if (interaction.isCommand()) handleCommands(client, interaction);
     else if (interaction.isButton()) handleButtons(client, interaction);
-    else if (interaction.isAnySelectMenu()) handleSelectMenus(client, interaction);
+    else if (interaction.isAnySelectMenu())
+      handleSelectMenus(client, interaction);
     else if (interaction.isModalSubmit()) handleModals(client, interaction);
   } catch (error: any) {
-    logger.error(`An error occurred during interaction handling: ${error}\n${error.stack}`);
+    logger.error(
+      `An error occurred during interaction handling: ${error}\n${error.stack}`
+    );
     if (interaction.isRepliable() && !interaction.replied) {
       await interaction.reply({
         embeds: [
           new EmbedBuilder()
             .setTitle("An error occurred!")
             .setColor(color.error)
-            .setDescription("An error occurred while processing your interaction. The error has been logged.")
+            .setDescription(
+              "An error occurred while processing your interaction. The error has been logged."
+            )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -50,7 +51,10 @@ export const execute: Execute = async (
  * @param interaction The interaction
  * @returns void
  */
-async function handleCommands(client: client, interaction: Interaction): Promise<void> {
+async function handleCommands(
+  client: client,
+  interaction: Interaction
+): Promise<void> {
   if (!interaction.isCommand() && !interaction.isContextMenuCommand()) return;
 
   config.logging.slashCommandLoad &&
@@ -73,7 +77,7 @@ async function handleCommands(client: client, interaction: Interaction): Promise
   if (!target) {
     await interaction.reply({
       content: "Command not found.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -90,7 +94,8 @@ async function handleCommands(client: client, interaction: Interaction): Promise
   const cooldownAmount = (target.cooldown || 0) * 1000;
 
   if (timestamps?.has(interaction.user.id)) {
-    const expirationTime = (timestamps.get(interaction.user.id) as number) + cooldownAmount;
+    const expirationTime =
+      (timestamps.get(interaction.user.id) as number) + cooldownAmount;
 
     if (now < expirationTime) {
       const timeLeft = (expirationTime - now) / 1000;
@@ -101,11 +106,15 @@ async function handleCommands(client: client, interaction: Interaction): Promise
             .setTitle("Slow down!")
             .setColor(color.error)
             .setDescription(
-              `Please wait ${timeLeft.toFixed(1)} more seconds before reusing the </${interaction.commandName}:${interaction.commandId}> command.`
+              `Please wait ${timeLeft.toFixed(
+                1
+              )} more seconds before reusing the </${interaction.commandName}:${
+                interaction.commandId
+              }> command.`
             )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -119,11 +128,17 @@ async function handleCommands(client: client, interaction: Interaction): Promise
       await command.execute(
         client,
         interaction as CommandInteraction,
+        // @ts-ignore
         interaction.options as CommandInteractionOptionResolver
       );
     } else if (context) {
-      // @ts-ignore
-      await context.execute(client, interaction, interaction.options as CommandInteractionOptionResolver);
+      await context.execute(
+        client,
+        // @ts-ignore
+        interaction,
+        // @ts-ignore
+        interaction.options as CommandInteractionOptionResolver
+      );
     }
   } catch (error: any) {
     logger.error(
@@ -139,7 +154,7 @@ async function handleCommands(client: client, interaction: Interaction): Promise
           )
           .setTimestamp(),
       ],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -150,7 +165,10 @@ async function handleCommands(client: client, interaction: Interaction): Promise
  * @param interaction The interaction
  * @returns void
  */
-async function handleButtons(client: client, interaction: ButtonInteraction): Promise<void> {
+async function handleButtons(
+  client: client,
+  interaction: ButtonInteraction
+): Promise<void> {
   config.logging.buttonUse &&
     logger.info(
       `Button ${interaction.customId} was executed by ${
@@ -160,7 +178,9 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
       }`
     );
 
-  const button = client.buttons.get(interaction.customId.split(process.env.INTERACTION_SPLIT as string || "-")[0]);
+  const button = client.buttons.get(
+    interaction.customId.split((process.env.INTERACTION_SPLIT as string) || "-")[0]
+  );
 
   if (!button) {
     if (!interaction.replied) {
@@ -169,7 +189,9 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
           embeds: [
             new EmbedBuilder()
               .setTitle("Unknown button")
-              .setDescription("This button is not recognized by the bot anymore.")
+              .setDescription(
+                "This button is not recognized by the bot anymore."
+              )
               .setColor(color.error)
               .setTimestamp(),
           ],
@@ -185,7 +207,7 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
               .setColor(color.error)
               .setTimestamp(),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     } else {
@@ -217,10 +239,16 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
           new EmbedBuilder()
             .setTitle("Slow down!")
             .setColor(color.error)
-            .setDescription(`Please wait ${timeLeft.toFixed(1)} more seconds before clicking the ${interaction.customId} button.`)
+            .setDescription(
+              `Please wait ${timeLeft.toFixed(
+                1
+              )} more seconds before clicking the ${
+                interaction.customId
+              } button.`
+            )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -233,8 +261,8 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
     await button?.execute(
       client,
       interaction,
-      interaction.customId.split("-").length > 1
-        ? interaction.customId.split("-").slice(1)
+      interaction.customId.split((process.env.INTERACTION_SPLIT as string) || "-").length > 1
+        ? interaction.customId.split((process.env.INTERACTION_SPLIT as string) || "-").slice(1)
         : undefined
     );
   } catch (error: any) {
@@ -248,7 +276,9 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
             new EmbedBuilder()
               .setTitle("An error occurred!")
               .setColor(color.error)
-              .setDescription("An error occurred while executing this button. The error has been logged.")
+              .setDescription(
+                "An error occurred while executing this button. The error has been logged."
+              )
               .setTimestamp(),
           ],
         });
@@ -258,10 +288,12 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
             new EmbedBuilder()
               .setTitle("An error occurred!")
               .setColor(color.error)
-              .setDescription("An error occurred while executing this button. The error has been logged.")
+              .setDescription(
+                "An error occurred while executing this button. The error has been logged."
+              )
               .setTimestamp(),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     } else {
@@ -270,7 +302,9 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
           new EmbedBuilder()
             .setTitle("An error occurred!")
             .setColor(color.error)
-            .setDescription("An error occurred while executing this button. The error has been logged.")
+            .setDescription(
+              "An error occurred while executing this button. The error has been logged."
+            )
             .setTimestamp(),
         ],
       });
@@ -284,7 +318,10 @@ async function handleButtons(client: client, interaction: ButtonInteraction): Pr
  * @param interaction The interaction
  * @returns void
  */
-async function handleSelectMenus(client: client, interaction: AnySelectMenuInteraction): Promise<void> {
+async function handleSelectMenus(
+  client: client,
+  interaction: AnySelectMenuInteraction
+): Promise<void> {
   config.logging.selectMenuUse &&
     logger.info(
       `Select menu ${interaction.customId} was executed by ${
@@ -294,7 +331,11 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
       }`
     );
 
-  const select = client.select.get(interaction.customId.split(process.env.INTERACTION_SPLIT as string || "-")[0]);
+  const select = client.select.get(
+    interaction.customId.split(
+      (process.env.INTERACTION_SPLIT as string) || "-"
+    )[0]
+  );
 
   if (!select) {
     if (!interaction.replied) {
@@ -303,7 +344,9 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
           embeds: [
             new EmbedBuilder()
               .setTitle("Unknown select menu")
-              .setDescription("This select menu is not recognized by the bot anymore.")
+              .setDescription(
+                "This select menu is not recognized by the bot anymore."
+              )
               .setColor(color.error)
               .setTimestamp(),
           ],
@@ -319,7 +362,7 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
               .setColor(color.error)
               .setTimestamp(),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     } else {
@@ -327,7 +370,9 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
         embeds: [
           new EmbedBuilder()
             .setTitle("Unknown select menu")
-            .setDescription("This select menu is not recognized by the bot anymore.")
+            .setDescription(
+              "This select menu is not recognized by the bot anymore."
+            )
             .setColor(color.error)
             .setTimestamp(),
         ],
@@ -351,10 +396,16 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
           new EmbedBuilder()
             .setTitle("Slow down!")
             .setColor(color.error)
-            .setDescription(`Please wait ${timeLeft.toFixed(1)} more seconds before clicking the ${interaction.customId} select menu.`)
+            .setDescription(
+              `Please wait ${timeLeft.toFixed(
+                1
+              )} more seconds before clicking the ${
+                interaction.customId
+              } select menu.`
+            )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -364,7 +415,11 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
   setTimeout(() => timestamps?.delete(interaction.user.id), cooldownAmount);
 
   try {
-    await select?.execute(client, interaction, interaction.values.toString().split("-") || undefined);
+    await select?.execute(
+      client,
+      interaction,
+      interaction.values.toString().split("-") || undefined
+    );
   } catch (error: any) {
     logger.error(
       `An error occurred while executing select menu ${interaction.customId}: ${error}\n${error.stack}`
@@ -376,7 +431,9 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
             new EmbedBuilder()
               .setTitle("An error occurred!")
               .setColor(color.error)
-              .setDescription("An error occurred while executing this select menu. The error has been logged.")
+              .setDescription(
+                "An error occurred while executing this select menu. The error has been logged."
+              )
               .setTimestamp(),
           ],
         });
@@ -386,10 +443,12 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
             new EmbedBuilder()
               .setTitle("An error occurred!")
               .setColor(color.error)
-              .setDescription("An error occurred while executing this select menu. The error has been logged.")
+              .setDescription(
+                "An error occurred while executing this select menu. The error has been logged."
+              )
               .setTimestamp(),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     } else {
@@ -398,7 +457,9 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
           new EmbedBuilder()
             .setTitle("An error occurred!")
             .setColor(color.error)
-            .setDescription("An error occurred while executing this select menu. The error has been logged.")
+            .setDescription(
+              "An error occurred while executing this select menu. The error has been logged."
+            )
             .setTimestamp(),
         ],
       });
@@ -412,17 +473,24 @@ async function handleSelectMenus(client: client, interaction: AnySelectMenuInter
  * @param interaction The interaction
  * @returns void
  */
-async function handleModals(client: client, interaction: ModalSubmitInteraction): Promise<void> {
+async function handleModals(
+  client: client,
+  interaction: ModalSubmitInteraction
+): Promise<void> {
   config.logging.modalUse &&
     logger.info(
-      `Modal ${interaction.customId} was executed by ${
-        interaction.user.tag
-      } (${interaction.user.id}) in ${interaction.guild?.name || "DMs"} ${
+      `Modal ${interaction.customId} was executed by ${interaction.user.tag} (${
+        interaction.user.id
+      }) in ${interaction.guild?.name || "DMs"} ${
         interaction.guild ? `(${interaction.guild.id})` : ""
       }`
     );
 
-  const modal = client.modals.get(interaction.customId.split(process.env.INTERACTION_SPLIT as string || "-")[0]);
+  const modal = client.modals.get(
+    interaction.customId.split(
+      (process.env.INTERACTION_SPLIT as string) || "-"
+    )[0]
+  );
 
   if (!modal) {
     if (!interaction.replied) {
@@ -431,7 +499,9 @@ async function handleModals(client: client, interaction: ModalSubmitInteraction)
           embeds: [
             new EmbedBuilder()
               .setTitle("Unknown modal")
-              .setDescription("This modal is not recognized by the bot anymore.")
+              .setDescription(
+                "This modal is not recognized by the bot anymore."
+              )
               .setColor(color.error)
               .setTimestamp(),
           ],
@@ -447,7 +517,7 @@ async function handleModals(client: client, interaction: ModalSubmitInteraction)
               .setColor(color.error)
               .setTimestamp(),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     } else {
@@ -479,10 +549,16 @@ async function handleModals(client: client, interaction: ModalSubmitInteraction)
           new EmbedBuilder()
             .setTitle("Slow down!")
             .setColor(color.error)
-            .setDescription(`Please wait ${timeLeft.toFixed(1)} more seconds before submitting the ${interaction.customId} modal.`)
+            .setDescription(
+              `Please wait ${timeLeft.toFixed(
+                1
+              )} more seconds before submitting the ${
+                interaction.customId
+              } modal.`
+            )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -504,7 +580,9 @@ async function handleModals(client: client, interaction: ModalSubmitInteraction)
             new EmbedBuilder()
               .setTitle("An error occurred!")
               .setColor(color.error)
-              .setDescription("An error occurred while executing this modal. The error has been logged.")
+              .setDescription(
+                "An error occurred while executing this modal. The error has been logged."
+              )
               .setTimestamp(),
           ],
         });
@@ -514,10 +592,12 @@ async function handleModals(client: client, interaction: ModalSubmitInteraction)
             new EmbedBuilder()
               .setTitle("An error occurred!")
               .setColor(color.error)
-              .setDescription("An error occurred while executing this modal. The error has been logged.")
+              .setDescription(
+                "An error occurred while executing this modal. The error has been logged."
+              )
               .setTimestamp(),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     } else {
@@ -526,7 +606,9 @@ async function handleModals(client: client, interaction: ModalSubmitInteraction)
           new EmbedBuilder()
             .setTitle("An error occurred!")
             .setColor(color.error)
-            .setDescription("An error occurred while executing this modal. The error has been logged.")
+            .setDescription(
+              "An error occurred while executing this modal. The error has been logged."
+            )
             .setTimestamp(),
         ],
       });
