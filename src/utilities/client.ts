@@ -23,21 +23,23 @@ export default class client extends Client {
   public contexts: Collection<string, Context> = new Collection();
   public cooldowns = new Map<string, Collection<Snowflake, number>>();
   public async start(): Promise<void> {
-    this.login(process.env.TOKEN).catch((error) => {
+    this.setMaxListeners(0);
+    
+    await this.loadEvents(path.join(__dirname, "..", config.paths.events || "events"));
+    config.loading.modals && await this.loadModals(path.join(__dirname, "..", config.paths.modals || "modals"));
+    config.loading.buttons && await this.loadButtons(path.join(__dirname, "..", config.paths.buttons || "buttons"));
+    config.loading.selectMenus && await this.loadSelect(path.join(__dirname, "..", config.paths.selectMenus || "select-menus"));
+    config.loading.slashCommands && await this.loadSlashCommands(path.join(__dirname, "..", config.paths.slashCommands || "commands/slash"));
+    config.loading.contextCommands && await this.loadContexts(path.join(__dirname, "..", config.paths.contextCommands || "commands/context"));
+    config.loading.prefixedCommands && await this.loadPrefixed(path.join(__dirname, "..", config.paths.prefixedCommands || "commands/prefix"));
+    
+    await this.login(process.env.TOKEN).catch((error) => {
       if (error.code === "TokenInvalid") {
         logger.fatal("The provided token is invalid. Please review your .env file.")
         process.exit(1);
       }
+      throw error;
     });
-    this.setMaxListeners(0);
-    
-    this.loadEvents(path.join(__dirname, "..", config.paths.events || "events"))
-    config.loading.modals && this.loadModals(path.join(__dirname, "..", config.paths.modals || "modals"));
-    config.loading.buttons && this.loadButtons(path.join(__dirname, "..", config.paths.buttons || "buttons"));
-    config.loading.selectMenus && this.loadSelect(path.join(__dirname, "..", config.paths.selectMenus || "select-menus"));
-    config.loading.slashCommands && this.loadSlashCommands(path.join(__dirname, "..", config.paths.slashCommands || "commands/slash"));
-    config.loading.contextCommands && this.loadContexts(path.join(__dirname, "..", config.paths.contextCommands || "commands/context"));
-    config.loading.prefixedCommands && this.loadPrefixed(path.join(__dirname, "..", config.paths.prefixedCommands || "commands/prefix"));
   }
 
   /**
@@ -53,7 +55,8 @@ export default class client extends Client {
       if (fs.lstatSync(itemPath).isDirectory()) {
         await this.loadEvents(itemPath);
       } else if (item.endsWith(".ts") || item.endsWith(".js")) {
-        import(itemPath).then((event: Event) => {
+        try {
+          const event: Event = await import(itemPath);
           this.events.set(event.name, event);
 
           if (event.once) {
@@ -65,9 +68,9 @@ export default class client extends Client {
           if (config.logging.eventLoad) {
             logger.info(`${event.name.charAt(0).toUpperCase() + event.name.slice(1)} has been hooked.`);
           }
-        }).catch((error) => {
+        } catch (error) {
           logger.error(`An error occurred while loading ${itemPath}: ${error}`)
-        })
+        }
       }
     }
   }
